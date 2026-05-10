@@ -8,41 +8,32 @@ import os
 from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPM
 
-# 新增：处理 PDF 的顶级库
+# 处理 PDF 的库
 import fitz  
 
 st.set_page_config(page_title="全能文件转换工具", page_icon="🗂️")
 st.title("🗂️ 全能图片与文档转换器")
-st.write("支持常见图片、SVG矢量图 以及 PDF文档 相互转换。")
+st.write("支持常见图片、SVG矢量图 以及 PDF文档 相互转换与压缩。")
 
-# 1. 增加了 "pdf" 格式的支持
-uploaded_file = st.file_uploader("请选择要转换的文件", type=["png", "jpg", "jpeg", "webp", "bmp", "gif", "svg", "pdf"])
+# 1. 支持上传的格式
+uploaded_file = st.file_uploader("请选择要转换或压缩的文件", type=["png", "jpg", "jpeg", "webp", "bmp", "gif", "svg", "pdf"])
 
 if uploaded_file is not None:
     try:
-        # 获取文件的后缀名
         file_extension = uploaded_file.name.lower().split('.')[-1]
-        
-        # 建立一个占位变量来存放最终读取到的图片
         img = None 
 
         # === 处理 PDF 逻辑 ===
         if file_extension == 'pdf':
-            # 读取 PDF 文件到内存
             doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
             total_pages = len(doc)
-            
-            # 如果有多页，自动出现页码选择器
             page_num = 0
             if total_pages > 1:
                 st.info(f"📄 该 PDF 共有 {total_pages} 页")
                 page_num = st.number_input(f"请输入要提取的页码 (1-{total_pages})", min_value=1, max_value=total_pages, value=1) - 1
             
-            # 提取指定页，并设置为 300 DPI (高清画质)
             page = doc.load_page(page_num)
             pix = page.get_pixmap(dpi=300)
-            
-            # 把 PDF 页面转为处理图片用的 Image 对象
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
         # === 处理 SVG 逻辑 ===
@@ -59,16 +50,23 @@ if uploaded_file is not None:
         else:
             img = Image.open(uploaded_file)
         
-        # --- 下面的逻辑不变，负责展示和导出 ---
+        # --- 展示与导出逻辑 ---
         if img is not None:
             st.image(img, caption="原图/当前页 预览", width=400)
 
-            target_format = st.selectbox("请选择要导出的目标图片格式", ["PNG", "JPEG", "WEBP", "BMP"])
+            # 使用左右两列让界面更紧凑美观
+            col1, col2 = st.columns(2)
+            with col1:
+                # 默认把 JPEG 放在最前面，因为压缩通常用 JPEG 或 WEBP
+                target_format = st.selectbox("请选择导出格式", ["JPEG", "PNG", "WEBP", "BMP"])
+            with col2:
+                # 【新增功能】：压缩质量滑块
+                image_quality = st.slider("图片质量 (100为最高画质，越小文件越小)", min_value=1, max_value=100, value=85, step=1)
 
-            if st.button("开始转换"):
+            if st.button("开始处理"):
                 buf = io.BytesIO()
                 
-                # 兼容透明底转 JPG 的报错问题
+                # 兼容透明底转 JPG
                 if target_format == "JPEG" and img.mode in ("RGBA", "P"):
                     background = Image.new('RGB', img.size, (255, 255, 255))
                     if img.mode == 'RGBA':
@@ -77,10 +75,13 @@ if uploaded_file is not None:
                         background.paste(img)
                     img = background
                 
-                img.save(buf, format=target_format)
+                # 【关键修改】：在这里加入了 quality 参数和 optimize 自动优化
+                img.save(buf, format=target_format, quality=image_quality, optimize=True)
                 byte_im = buf.getvalue()
 
-                st.success("🎉 转换成功！")
+                # 【新增功能】：计算压缩后的文件大小并显示
+                file_size_kb = len(byte_im) / 1024
+                st.success(f"🎉 处理成功！最终文件大小: {file_size_kb:.1f} KB")
 
                 st.download_button(
                     label=f"⬇️ 点击下载 {target_format} 图片",
