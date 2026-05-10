@@ -12,10 +12,11 @@ from reportlab.graphics import renderPM
 # 处理 PDF 的库
 import fitz  
 
+# 1. 网页基础配置
 st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
 
 # ==========================================
-# 🥷 【新增代码】强制隐藏 Streamlit 默认的菜单、GitHub 链接和底部水印
+# 🥷 2. 隐藏 Streamlit 默认菜单、GitHub 链接和底部水印
 # ==========================================
 hide_streamlit_style = """
 <style>
@@ -29,28 +30,8 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 st.title("🧰 个人专属全能转换器")
 st.write("请在下方选择你需要使用的工具：")
-import streamlit as st
-from PIL import Image
-import io
-import tempfile
-import os
-import subprocess
 
-# 处理 SVG 的库
-from svglib.svglib import svg2rlg
-from reportlab.graphics import renderPM
-
-# 处理 PDF 的库
-import fitz  
-
-st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
-
-st.title("🧰 个人专属全能转换器")
-st.write("请在下方选择你需要使用的工具：")
-
-# ==========================================
-# 🌟 核心布局：创建四个顶部选项卡
-# ==========================================
+# 3. 创建四个功能选项卡
 tab1, tab2, tab3, tab4 = st.tabs(["🔄 图片格式转换", "🗜️ 图片极限压缩", "📄 Word 转 PDF", "🧩 多图长图拼接"])
 
 # ==========================================
@@ -88,6 +69,7 @@ with tab1:
                 
                 if st.button("开始转换", key="btn_convert"):
                     buf = io.BytesIO()
+                    # 兼容透明背景转 JPEG
                     if target_fmt == "JPEG" and img.mode in ("RGBA", "P"):
                         bg = Image.new('RGB', img.size, (255, 255, 255))
                         bg.paste(img, mask=img.split()[3]) if img.mode == 'RGBA' else bg.paste(img)
@@ -136,12 +118,12 @@ with tab2:
 # 工具三：Word 转 PDF (Tab 3)
 # ==========================================
 with tab3:
-    st.subheader("拒绝充值会员，免费本地引擎转换")
+    st.subheader("免费本地引擎转换排版")
     file_word = st.file_uploader("请上传 Word 文档", type=["doc", "docx"], key="upload_word")
     
     if file_word:
         if st.button("🚀 开始生成 PDF", key="btn_word"):
-            with st.spinner("⏳ 正在调用底层开源引擎排版中，请稍候..."):
+            with st.spinner("⏳ 正在排版并生成PDF，请稍候..."):
                 ext_w = file_word.name.lower().split('.')[-1]
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext_w}") as tmp_in:
                     tmp_in.write(file_word.getvalue())
@@ -154,7 +136,7 @@ with tab3:
                 
                 if os.path.exists(out_path):
                     with open(out_path, "rb") as f:
-                        st.success("🎉 Word 成功转换为 PDF！")
+                        st.success("🎉 成功转换为 PDF！")
                         st.download_button("⬇️ 下载 PDF 文件", data=f.read(), file_name=f"{file_word.name.rsplit('.', 1)[0]}.pdf", mime="application/pdf")
                     os.remove(out_path)
                 else:
@@ -162,25 +144,21 @@ with tab3:
                 os.remove(in_path)
 
 # ==========================================
-# 🌟 【全新】工具四：多图拼接 (Tab 4)
+# 工具四：多图拼接 (Tab 4)
 # ==========================================
 with tab4:
     st.subheader("将多张图片无缝拼成一张图")
-    # 注意这里加入了 accept_multiple_files=True，允许一次选中多张图！
-    uploaded_images = st.file_uploader("请选择多张图片 (按住 Ctrl 可多选)", type=["png", "jpg", "jpeg", "webp", "bmp"], accept_multiple_files=True, key="upload_merge")
+    uploaded_images = st.file_uploader("请选择多张图片 (可批量拖拽)", type=["png", "jpg", "jpeg", "webp", "bmp"], accept_multiple_files=True, key="upload_merge")
 
     if uploaded_images:
-        # 将上传的文件打包成字典，方便提取
         file_dict = {file.name: file for file in uploaded_images}
         
-        st.info("💡 **调整顺序提示：** 下方的框内是你上传的图片。你可以把它们叉掉，然后**按照你期望的顺序重新点击选中**。先选的在上面/左边！")
+        st.info("💡 **提示：** 在下方框内，你可以点击 [X] 删掉某张图，然后重新点击空白处选中它，即可**自定义拼图顺序**。先选的在上方/左方！")
         
-        # 利用 multiselect 巧妙实现排序功能
         selected_order = st.multiselect("请确认拼接顺序：", options=list(file_dict.keys()), default=list(file_dict.keys()), key="merge_order")
 
         if selected_order:
-            # 实时预览排列顺序
-            cols = st.columns(min(len(selected_order), 5)) # 最多展示5列微缩图
+            cols = st.columns(min(len(selected_order), 5)) 
             for i, fname in enumerate(selected_order):
                 with cols[i % 5]:
                     st.image(Image.open(file_dict[fname]), caption=f"第 {i+1} 张", use_container_width=True)
@@ -192,23 +170,19 @@ with tab4:
                 target_fmt_merge = st.selectbox("导出格式", ["JPEG", "PNG"], key="fmt_merge")
 
             if st.button("🚀 开始拼接", key="btn_merge"):
-                with st.spinner("正在绘制长图..."):
-                    # 读取用户选好顺序的图片
+                with st.spinner("正在拼接图片..."):
                     images = [Image.open(file_dict[fname]) for fname in selected_order]
 
                     if "垂直" in merge_direction:
-                        # 计算画布大小：最宽的宽度，高度的总和
                         max_width = max(img.size[0] for img in images)
                         total_height = sum(img.size[1] for img in images)
                         merged_img = Image.new('RGB', (max_width, total_height), color=(255, 255, 255))
 
-                        # 逐个贴上去
                         y_offset = 0
                         for img in images:
                             merged_img.paste(img, (0, y_offset))
                             y_offset += img.size[1]
                     else:
-                        # 计算画布大小：宽度的总和，最高的高度
                         total_width = sum(img.size[0] for img in images)
                         max_height = max(img.size[1] for img in images)
                         merged_img = Image.new('RGB', (total_width, max_height), color=(255, 255, 255))
@@ -218,12 +192,10 @@ with tab4:
                             merged_img.paste(img, (x_offset, 0))
                             x_offset += img.size[0]
 
-                    # 导出和下载
                     buf_m = io.BytesIO()
                     merged_img.save(buf_m, format=target_fmt_merge, quality=90)
                     
                     st.success("🎉 拼图成功！")
-                    # 展示最终结果
                     st.image(merged_img, caption="拼接结果预览", use_container_width=True)
                     
                     st.download_button(
