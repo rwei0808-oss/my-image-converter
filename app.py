@@ -14,6 +14,37 @@ import fitz
 
 st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
 
+# ==========================================
+# 🥷 【新增代码】强制隐藏 Streamlit 默认的菜单、GitHub 链接和底部水印
+# ==========================================
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;} /* 隐藏右上角菜单 */
+header {visibility: hidden;}    /* 隐藏右上角的 GitHub/Fork 区域 */
+footer {visibility: hidden;}    /* 隐藏右下角的水印 */
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# ==========================================
+
+st.title("🧰 个人专属全能转换器")
+st.write("请在下方选择你需要使用的工具：")
+import streamlit as st
+from PIL import Image
+import io
+import tempfile
+import os
+import subprocess
+
+# 处理 SVG 的库
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
+
+# 处理 PDF 的库
+import fitz  
+
+st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
+
 st.title("🧰 个人专属全能转换器")
 st.write("请在下方选择你需要使用的工具：")
 
