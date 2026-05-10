@@ -16,27 +16,51 @@ import fitz
 st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
 
 # ==========================================
-# 🥷 2. 强力隐藏 Streamlit 所有默认元素、徽章和水印
+# 🥷 2. 超级强力隐藏魔法（针对最新版 Streamlit）
 # ==========================================
-hide_streamlit_style = """
+hide_all_style = """
 <style>
-/* 隐藏基础菜单、顶部空白和页脚 */
-#MainMenu {visibility: hidden;}
-header {visibility: hidden;}
-footer {visibility: hidden;}
+/* 1. 隐藏顶部彩虹装饰线 */
+[data-testid="stDecoration"] {
+    display: none !important;
+}
 
-/* 强力隐藏右上角可能残留的 Deploy 按钮 */
-.stDeployButton {display: none !important;}
+/* 2. 隐藏标题栏和右上角所有按钮（Deploy, 菜单等） */
+[data-testid="stHeader"] {
+    display: none !important;
+}
 
-/* 强力隐藏右下角的 Hosted with Streamlit 和 Creator Badge (开发者徽章) */
-.viewerBadge_container {display: none !important;}
-.viewerBadge_link {display: none !important;}
-div[data-testid="viewerBadge"] {display: none !important;}
-div[data-testid="stCreatorBadge"] {display: none !important;}
-div[class^="viewerBadge"] {display: none !important;}
+/* 3. 隐藏页脚 */
+footer {
+    display: none !important;
+}
+
+/* 4. 隐藏右下角所有的徽章 (Creator Badge, Hosted with Streamlit) */
+div[data-testid="stStatusWidget"] {
+    display: none !important;
+}
+
+/* 5. 针对不同的 CSS 类名进行暴力封杀 */
+div[class*="viewerBadge"] {
+    display: none !important;
+}
+
+div[class*="stCreatorBadge"] {
+    display: none !important;
+}
+
+/* 6. 移除底部多余的空白 */
+.stApp {
+    bottom: 0px !important;
+}
+
+/* 7. 隐藏主菜单图标 */
+#MainMenu {
+    visibility: hidden !important;
+}
 </style>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(hide_all_style, unsafe_allow_html=True)
 # ==========================================
 
 st.title("🧰 个人专属全能转换器")
@@ -80,7 +104,6 @@ with tab1:
                 
                 if st.button("开始转换", key="btn_convert"):
                     buf = io.BytesIO()
-                    # 兼容透明背景转 JPEG
                     if target_fmt == "JPEG" and img.mode in ("RGBA", "P"):
                         bg = Image.new('RGB', img.size, (255, 255, 255))
                         bg.paste(img, mask=img.split()[3]) if img.mode == 'RGBA' else bg.paste(img)
