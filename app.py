@@ -16,13 +16,24 @@ import fitz
 st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
 
 # ==========================================
-# 🥷 2. 隐藏 Streamlit 默认菜单、GitHub 链接和底部水印
+# 🥷 2. 强力隐藏 Streamlit 所有默认元素、徽章和水印
 # ==========================================
 hide_streamlit_style = """
 <style>
-#MainMenu {visibility: hidden;} /* 隐藏右上角菜单 */
-header {visibility: hidden;}    /* 隐藏右上角的 GitHub/Fork 区域 */
-footer {visibility: hidden;}    /* 隐藏右下角的水印 */
+/* 隐藏基础菜单、顶部空白和页脚 */
+#MainMenu {visibility: hidden;}
+header {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* 强力隐藏右上角可能残留的 Deploy 按钮 */
+.stDeployButton {display: none !important;}
+
+/* 强力隐藏右下角的 Hosted with Streamlit 和 Creator Badge (开发者徽章) */
+.viewerBadge_container {display: none !important;}
+.viewerBadge_link {display: none !important;}
+div[data-testid="viewerBadge"] {display: none !important;}
+div[data-testid="stCreatorBadge"] {display: none !important;}
+div[class^="viewerBadge"] {display: none !important;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
