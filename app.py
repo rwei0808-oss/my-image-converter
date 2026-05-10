@@ -3,7 +3,7 @@ from PIL import Image
 import io
 import tempfile
 import os
-import subprocess  # 新增：用来在后台悄悄调用 LibreOffice 引擎
+import subprocess
 
 # 处理 SVG 的库
 from svglib.svglib import svg2rlg
@@ -12,121 +12,122 @@ from reportlab.graphics import renderPM
 # 处理 PDF 的库
 import fitz  
 
-st.set_page_config(page_title="全能文件转换工具", page_icon="🗂️")
-st.title("🗂️ 个人专属全能转换器")
-st.write("支持图片处理、SVG转换、PDF提取，以及 **Word 转 PDF（永久免费，拒绝会员！）**")
+st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
 
-# 1. 在支持列表中加入了 doc 和 docx
-uploaded_file = st.file_uploader("请选择要处理的文件", type=["png", "jpg", "jpeg", "webp", "bmp", "gif", "svg", "pdf", "doc", "docx"])
+st.title("🧰 个人专属全能转换器")
+st.write("请在下方选择你需要使用的工具：")
 
-if uploaded_file is not None:
-    try:
-        file_extension = uploaded_file.name.lower().split('.')[-1]
-        img = None 
+# ==========================================
+# 🌟 核心布局：创建三个顶部选项卡
+# ==========================================
+tab1, tab2, tab3 = st.tabs(["🔄 图片格式转换", "🗜️ 图片极限压缩", "📄 Word 转 PDF (免费)"])
 
-        # ==========================================
-        # 🌟 【全新功能】处理 Word (.doc / .docx) 转 PDF
-        # ==========================================
-        if file_extension in ['doc', 'docx']:
-            st.info("📄 识别到 Word 文档，准备执行 PDF 转换...")
+# ==========================================
+# 工具一：图片格式互换 (Tab 1)
+# ==========================================
+with tab1:
+    st.subheader("支持常见图片、SVG及PDF提取")
+    file_convert = st.file_uploader("请上传要转换的文件", type=["png", "jpg", "jpeg", "webp", "bmp", "gif", "svg", "pdf"], key="upload_convert")
+    
+    if file_convert:
+        try:
+            ext = file_convert.name.lower().split('.')[-1]
+            img = None
             
-            # 因为转换 Word 比较耗时，给用户一个加载提示
-            with st.spinner("⏳ 正在调用底层开源引擎排版中，请稍候（耗时取决于文档大小）..."):
-                # 把用户上传的 Word 保存到临时文件夹
-                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as tmp_in:
-                    tmp_in.write(uploaded_file.getvalue())
+            if ext == 'pdf':
+                doc = fitz.open(stream=file_convert.read(), filetype="pdf")
+                if len(doc) > 1:
+                    page_num = st.number_input("提取第几页？", min_value=1, max_value=len(doc), value=1, key="pdf_page") - 1
+                else:
+                    page_num = 0
+                pix = doc.load_page(page_num).get_pixmap(dpi=300)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            elif ext == 'svg':
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".svg") as tmp_svg:
+                    tmp_svg.write(file_convert.getvalue())
+                    tmp_svg_path = tmp_svg.name
+                img = renderPM.drawToPIL(svg2rlg(tmp_svg_path))
+                os.remove(tmp_svg_path)
+            else:
+                img = Image.open(file_convert)
+
+            if img:
+                st.image(img, caption="预览", width=300)
+                target_fmt = st.selectbox("导出格式", ["JPEG", "PNG", "WEBP", "BMP"], key="fmt_convert")
+                
+                if st.button("开始转换", key="btn_convert"):
+                    buf = io.BytesIO()
+                    if target_fmt == "JPEG" and img.mode in ("RGBA", "P"):
+                        bg = Image.new('RGB', img.size, (255, 255, 255))
+                        bg.paste(img, mask=img.split()[3]) if img.mode == 'RGBA' else bg.paste(img)
+                        img = bg
+                    
+                    img.save(buf, format=target_fmt)
+                    st.success("🎉 转换成功！")
+                    st.download_button("⬇️ 下载转换后的图片", data=buf.getvalue(), file_name=f"converted.{target_fmt.lower()}", mime=f"image/{target_fmt.lower()}")
+        except Exception as e:
+            st.error(f"解析失败: {e}")
+
+# ==========================================
+# 工具二：图片极限压缩 (Tab 2)
+# ==========================================
+with tab2:
+    st.subheader("在保持画质的前提下缩小文件体积")
+    file_compress = st.file_uploader("请上传要压缩的图片", type=["png", "jpg", "jpeg", "webp", "bmp"], key="upload_compress")
+    
+    if file_compress:
+        try:
+            # 获取原图大小
+            orig_size_kb = len(file_compress.getvalue()) / 1024
+            st.info(f"📁 原始文件大小: **{orig_size_kb:.1f} KB**")
+            
+            img_c = Image.open(file_compress)
+            st.image(img_c, caption="原图预览", width=300)
+            
+            quality = st.slider("压缩质量 (越小文件越小，推荐 60-80)", 1, 100, 75, key="slider_compress")
+            
+            if st.button("开始压缩", key="btn_compress"):
+                buf_c = io.BytesIO()
+                
+                if img_c.mode in ("RGBA", "P"):
+                    bg = Image.new('RGB', img_c.size, (255, 255, 255))
+                    bg.paste(img_c, mask=img_c.split()[3]) if img_c.mode == 'RGBA' else bg.paste(img_c)
+                    img_c = bg
+                
+                # 统一压缩为 JPEG 以获得最佳压缩率
+                img_c.save(buf_c, format="JPEG", quality=quality, optimize=True)
+                new_size_kb = len(buf_c.getvalue()) / 1024
+                
+                st.success(f"🎉 压缩完成！新文件大小: **{new_size_kb:.1f} KB** (缩小了 {((orig_size_kb - new_size_kb)/orig_size_kb*100):.1f}%)")
+                st.download_button("⬇️ 下载压缩后的图片", data=buf_c.getvalue(), file_name="compressed.jpg", mime="image/jpeg")
+        except Exception as e:
+            st.error(f"处理失败: {e}")
+
+# ==========================================
+# 工具三：Word 转 PDF (Tab 3)
+# ==========================================
+with tab3:
+    st.subheader("拒绝充值会员，免费本地引擎转换")
+    file_word = st.file_uploader("请上传 Word 文档", type=["doc", "docx"], key="upload_word")
+    
+    if file_word:
+        if st.button("🚀 开始生成 PDF", key="btn_word"):
+            with st.spinner("⏳ 正在调用底层开源引擎排版中，请稍候..."):
+                ext_w = file_word.name.lower().split('.')[-1]
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext_w}") as tmp_in:
+                    tmp_in.write(file_word.getvalue())
                     in_path = tmp_in.name
                 
-                # 设置导出的 PDF 路径
                 out_dir = os.path.dirname(in_path)
                 out_path = in_path.rsplit('.', 1)[0] + ".pdf"
                 
-                # 核心魔法：在后台运行 LibreOffice 命令进行转换
-                subprocess.run(
-                    ["libreoffice", "--headless", "--convert-to", "pdf", in_path, "--outdir", out_dir],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf", in_path, "--outdir", out_dir], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 
-                # 检查是否成功生成了 PDF
                 if os.path.exists(out_path):
                     with open(out_path, "rb") as f:
-                        byte_pdf = f.read()
-                    
-                    st.success("🎉 Word 成功转换为 PDF！成功省下了一个 WPS 会员！")
-                    
-                    st.download_button(
-                        label="⬇️ 点击下载 PDF 文件",
-                        data=byte_pdf,
-                        file_name=f"{uploaded_file.name.rsplit('.', 1)[0]}.pdf",
-                        mime="application/pdf"
-                    )
-                    # 转换完把临时文件删掉，释放服务器空间
+                        st.success("🎉 Word 成功转换为 PDF！成功省下了一个 WPS 会员！")
+                        st.download_button("⬇️ 下载 PDF 文件", data=f.read(), file_name=f"{file_word.name.rsplit('.', 1)[0]}.pdf", mime="application/pdf")
                     os.remove(out_path)
                 else:
-                    st.error("转换失败，请检查文档是否损坏或包含无法识别的宏。")
+                    st.error("转换失败，请检查文档是否损坏。")
                 os.remove(in_path)
-
-
-        # ==========================================
-        # 以下是之前写好的：PDF 提取、SVG 转换、图片压缩
-        # ==========================================
-        elif file_extension == 'pdf':
-            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-            total_pages = len(doc)
-            page_num = 0
-            if total_pages > 1:
-                st.info(f"📄 该 PDF 共有 {total_pages} 页")
-                page_num = st.number_input(f"请输入要转为图片的页码 (1-{total_pages})", min_value=1, max_value=total_pages, value=1) - 1
-            
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=300)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-
-        elif file_extension == 'svg':
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".svg") as tmp_svg:
-                tmp_svg.write(uploaded_file.getvalue())
-                tmp_svg_path = tmp_svg.name
-            
-            drawing = svg2rlg(tmp_svg_path)
-            img = renderPM.drawToPIL(drawing)
-            os.remove(tmp_svg_path)
-
-        else:
-            img = Image.open(uploaded_file)
-        
-        # --- 图片展示与导出逻辑 ---
-        if img is not None:
-            st.image(img, caption="图片预览", width=400)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                target_format = st.selectbox("请选择导出格式", ["JPEG", "PNG", "WEBP", "BMP"])
-            with col2:
-                image_quality = st.slider("图片质量 (越小文件越小)", min_value=1, max_value=100, value=85, step=1)
-
-            if st.button("开始处理图片"):
-                buf = io.BytesIO()
-                
-                if target_format == "JPEG" and img.mode in ("RGBA", "P"):
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'RGBA':
-                        background.paste(img, mask=img.split()[3])
-                    else:
-                        background.paste(img)
-                    img = background
-                
-                img.save(buf, format=target_format, quality=image_quality, optimize=True)
-                byte_im = buf.getvalue()
-
-                file_size_kb = len(byte_im) / 1024
-                st.success(f"🎉 图片处理成功！最终文件大小: {file_size_kb:.1f} KB")
-
-                st.download_button(
-                    label=f"⬇️ 点击下载 {target_format} 图片",
-                    data=byte_im,
-                    file_name=f"converted_image.{target_format.lower()}",
-                    mime=f"image/{target_format.lower()}"
-                )
-                
-    except Exception as e:
-        st.error(f"抱歉，解析文件时遇到问题。错误信息: {e}")
