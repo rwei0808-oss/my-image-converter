@@ -16,48 +16,40 @@ import fitz
 st.set_page_config(page_title="全能办公神器", page_icon="🧰", layout="centered")
 
 # ==========================================
-# 🥷 2. 超级强力隐藏魔法（针对最新版 Streamlit）
+# 🥷 2. 终极暴力隐藏魔法 (针对最新所有版本)
 # ==========================================
 hide_all_style = """
 <style>
-/* 1. 隐藏顶部彩虹装饰线 */
-[data-testid="stDecoration"] {
-    display: none !important;
+/* 隐藏顶部彩虹装饰线 */
+[data-testid="stDecoration"] { display: none !important; }
+
+/* 隐藏标题栏和右上角所有按钮（Deploy, 菜单等） */
+[data-testid="stHeader"] { display: none !important; }
+header { visibility: hidden !important; }
+
+/* 隐藏页脚 */
+footer { display: none !important; }
+
+/* 重点：强力隐藏右下角所有的徽章和连接状态 */
+/* 这里的代码涵盖了目前已知的所有 Streamlit 徽章 class 和 id */
+div[data-testid="stStatusWidget"] { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
+
+/* 专门针对右下角那个 Floating Badge (浮动徽章) */
+div[class*="viewerBadge"] { display: none !important; }
+div[class*="stCreatorBadge"] { display: none !important; }
+div[class*="StyledLink"] { display: none !important; }
+
+/* 针对某些版本可能出现的右下角弹出层 */
+#root > div:nth-child(1) > div.withScreencast > div > div > div > section > div.stAppDeployButton { display: none !important; }
+
+/* 强制让主体内容延伸到底部，不留给水印空间 */
+.main .block-container {
+    padding-bottom: 1rem !important;
 }
 
-/* 2. 隐藏标题栏和右上角所有按钮（Deploy, 菜单等） */
-[data-testid="stHeader"] {
-    display: none !important;
-}
-
-/* 3. 隐藏页脚 */
-footer {
-    display: none !important;
-}
-
-/* 4. 隐藏右下角所有的徽章 (Creator Badge, Hosted with Streamlit) */
-div[data-testid="stStatusWidget"] {
-    display: none !important;
-}
-
-/* 5. 针对不同的 CSS 类名进行暴力封杀 */
-div[class*="viewerBadge"] {
-    display: none !important;
-}
-
-div[class*="stCreatorBadge"] {
-    display: none !important;
-}
-
-/* 6. 移除底部多余的空白 */
-.stApp {
-    bottom: 0px !important;
-}
-
-/* 7. 隐藏主菜单图标 */
-#MainMenu {
-    visibility: hidden !important;
-}
+/* 隐藏右上角三个点的菜单 */
+#MainMenu { visibility: hidden !important; }
 </style>
 """
 st.markdown(hide_all_style, unsafe_allow_html=True)
@@ -195,46 +187,4 @@ with tab4:
             cols = st.columns(min(len(selected_order), 5)) 
             for i, fname in enumerate(selected_order):
                 with cols[i % 5]:
-                    st.image(Image.open(file_dict[fname]), caption=f"第 {i+1} 张", use_container_width=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                merge_direction = st.radio("选择拼接方向：", ["⬇️ 垂直拼接 (长图)", "➡️ 水平拼接 (横图)"])
-            with col2:
-                target_fmt_merge = st.selectbox("导出格式", ["JPEG", "PNG"], key="fmt_merge")
-
-            if st.button("🚀 开始拼接", key="btn_merge"):
-                with st.spinner("正在拼接图片..."):
-                    images = [Image.open(file_dict[fname]) for fname in selected_order]
-
-                    if "垂直" in merge_direction:
-                        max_width = max(img.size[0] for img in images)
-                        total_height = sum(img.size[1] for img in images)
-                        merged_img = Image.new('RGB', (max_width, total_height), color=(255, 255, 255))
-
-                        y_offset = 0
-                        for img in images:
-                            merged_img.paste(img, (0, y_offset))
-                            y_offset += img.size[1]
-                    else:
-                        total_width = sum(img.size[0] for img in images)
-                        max_height = max(img.size[1] for img in images)
-                        merged_img = Image.new('RGB', (total_width, max_height), color=(255, 255, 255))
-
-                        x_offset = 0
-                        for img in images:
-                            merged_img.paste(img, (x_offset, 0))
-                            x_offset += img.size[0]
-
-                    buf_m = io.BytesIO()
-                    merged_img.save(buf_m, format=target_fmt_merge, quality=90)
-                    
-                    st.success("🎉 拼图成功！")
-                    st.image(merged_img, caption="拼接结果预览", use_container_width=True)
-                    
-                    st.download_button(
-                        label="⬇️ 下载拼接好的图片", 
-                        data=buf_m.getvalue(), 
-                        file_name=f"merged_image.{target_fmt_merge.lower()}", 
-                        mime=f"image/{target_fmt_merge.lower()}"
-                    )
+                    st.image
