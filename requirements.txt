@@ -2,3 +2,4 @@ streamlit
 pillow
 svglib
 reportlab
+pymupdf
