@@ -4,73 +4,90 @@ import io
 import tempfile
 import os
 
-# 新增的库：专门用来把 SVG 矢量代码画成像素图片
+# 处理 SVG 的库
 from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPM
 
-# 设置网页标题
-st.set_page_config(page_title="全格式图片转换工具", page_icon="🖼️")
-st.title("🖼️ 极简图片格式转换工具")
-st.write("支持常见图片及 SVG 格式互相转换。")
+# 新增：处理 PDF 的顶级库
+import fitz  
 
-# 1. 增加了 "svg" 格式的支持
-uploaded_file = st.file_uploader("请选择要转换的图片", type=["png", "jpg", "jpeg", "webp", "bmp", "gif", "svg"])
+st.set_page_config(page_title="全能文件转换工具", page_icon="🗂️")
+st.title("🗂️ 全能图片与文档转换器")
+st.write("支持常见图片、SVG矢量图 以及 PDF文档 相互转换。")
+
+# 1. 增加了 "pdf" 格式的支持
+uploaded_file = st.file_uploader("请选择要转换的文件", type=["png", "jpg", "jpeg", "webp", "bmp", "gif", "svg", "pdf"])
 
 if uploaded_file is not None:
     try:
-        # 判断用户上传的是不是 SVG 文件
-        if uploaded_file.name.lower().endswith('.svg'):
-            # SVG 需要读取真实文件，所以我们在电脑上建一个临时文件存放它
+        # 获取文件的后缀名
+        file_extension = uploaded_file.name.lower().split('.')[-1]
+        
+        # 建立一个占位变量来存放最终读取到的图片
+        img = None 
+
+        # === 处理 PDF 逻辑 ===
+        if file_extension == 'pdf':
+            # 读取 PDF 文件到内存
+            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+            total_pages = len(doc)
+            
+            # 如果有多页，自动出现页码选择器
+            page_num = 0
+            if total_pages > 1:
+                st.info(f"📄 该 PDF 共有 {total_pages} 页")
+                page_num = st.number_input(f"请输入要提取的页码 (1-{total_pages})", min_value=1, max_value=total_pages, value=1) - 1
+            
+            # 提取指定页，并设置为 300 DPI (高清画质)
+            page = doc.load_page(page_num)
+            pix = page.get_pixmap(dpi=300)
+            
+            # 把 PDF 页面转为处理图片用的 Image 对象
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+        # === 处理 SVG 逻辑 ===
+        elif file_extension == 'svg':
             with tempfile.NamedTemporaryFile(delete=False, suffix=".svg") as tmp_svg:
                 tmp_svg.write(uploaded_file.getvalue())
                 tmp_svg_path = tmp_svg.name
             
-            # 第一步：把 SVG 读取为图形对象
             drawing = svg2rlg(tmp_svg_path)
-            # 第二步：把图形对象渲染成 Pillow 可以看懂的像素图片 (魔法就在这一句！)
             img = renderPM.drawToPIL(drawing)
-            
-            # 用完后把临时文件删掉，保持电脑干净
             os.remove(tmp_svg_path)
+
+        # === 处理普通图片逻辑 ===
         else:
-            # 如果是普通图片，直接读取
             img = Image.open(uploaded_file)
         
-        # 在网页上展示预览图
-        st.image(img, caption="原图预览", width=300)
+        # --- 下面的逻辑不变，负责展示和导出 ---
+        if img is not None:
+            st.image(img, caption="原图/当前页 预览", width=400)
 
-        # 2. 下拉菜单选择目标格式
-        target_format = st.selectbox("请选择要转换成的目标格式", ["PNG", "JPEG", "WEBP", "BMP"])
+            target_format = st.selectbox("请选择要导出的目标图片格式", ["PNG", "JPEG", "WEBP", "BMP"])
 
-        # 3. 转换逻辑
-        if st.button("开始转换"):
-            buf = io.BytesIO()
-            
-            # 特殊处理：如果带有透明背景的图片（如 SVG/PNG）要转成 JPEG
-            if target_format == "JPEG" and img.mode in ("RGBA", "P"):
-                # 创建一张和原图一样大的纯白色背景画布
-                background = Image.new('RGB', img.size, (255, 255, 255))
-                # 把原图贴在白底画布上 (避免透明部分变黑)
-                if img.mode == 'RGBA':
-                    background.paste(img, mask=img.split()[3]) # 利用 Alpha 通道作为遮罩
-                else:
-                    background.paste(img)
-                img = background
-            
-            # 将图片保存到内存中转站
-            img.save(buf, format=target_format)
-            byte_im = buf.getvalue()
+            if st.button("开始转换"):
+                buf = io.BytesIO()
+                
+                # 兼容透明底转 JPG 的报错问题
+                if target_format == "JPEG" and img.mode in ("RGBA", "P"):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'RGBA':
+                        background.paste(img, mask=img.split()[3])
+                    else:
+                        background.paste(img)
+                    img = background
+                
+                img.save(buf, format=target_format)
+                byte_im = buf.getvalue()
 
-            st.success("🎉 转换成功！请点击下方按钮下载。")
+                st.success("🎉 转换成功！")
 
-            # 4. 生成下载按钮
-            st.download_button(
-                label=f"⬇️ 下载 {target_format} 格式图片",
-                data=byte_im,
-                file_name=f"converted_image.{target_format.lower()}",
-                mime=f"image/{target_format.lower()}"
-            )
-            
+                st.download_button(
+                    label=f"⬇️ 点击下载 {target_format} 图片",
+                    data=byte_im,
+                    file_name=f"converted_file.{target_format.lower()}",
+                    mime=f"image/{target_format.lower()}"
+                )
+                
     except Exception as e:
-        # 如果遇到无法解析的损坏文件，给出一个友好的错误提示
-        st.error(f"抱歉，读取图片失败了。错误信息: {e}")
+        st.error(f"抱歉，解析文件时遇到问题。错误信息: {e}")
